@@ -1,0 +1,23 @@
+vector_db:
+  index_name: "journeys"
+
+retriever:
+  top_k: 3
+  score_threshold: 0.5
+
+embedding_model:
+  provider: "huggingface"
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
+
+llm:
+  google:
+    provider: "google"
+    model_name: "gemini-2.5-flash"
+  groq:
+    provider: "groq"
+    model_name: "llama-3.3-70b-versatile"
+
+tools:
+  tavily:
+    max_results: 5
+

@@ -1,0 +1,19 @@
+langchain
+langgraph
+tavily-python
+polygon
+langchain_community
+langchain_google_genai
+langchain_groq
+langchain-huggingface
+streamlit
+fastapi[all]
+uvicorn
+langchain-pinecone
+pinecone
+pypdf
+python-dotenv
+sentence-transformers
+tf-keras
+langchain_pinecone
+-e .

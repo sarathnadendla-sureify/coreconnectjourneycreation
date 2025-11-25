@@ -154,32 +154,61 @@ with col1:
                         section = section.strip()
                         if not section:
                             continue
+                        # Only treat as filename if the first line looks like a filename (ends with .ts, .js, .json, .md, etc.)
                         lines = section.split('\n', 1)
                         filename = lines[0].strip() if lines else ''
                         file_content = lines[1] if len(lines) > 1 else ''
-                        if filename:
-                            st.markdown(f"<div style='font-weight:bold;color:#007acc;margin-top:1em;'>// Filename: {filename}</div>", unsafe_allow_html=True)
-                        # Find all code blocks (typescript or generic) and render them as code, rest as markdown
                         import re
-                        code_block_pattern = re.compile(r'```(typescript|ts|js|json)?(.*?)```', re.DOTALL)
-                        code_blocks = list(code_block_pattern.finditer(file_content))
-                        if code_blocks:
-                            last_end = 0
-                            for match in code_blocks:
-                                before = file_content[last_end:match.start()]
-                                if before.strip():
-                                    st.markdown(before, unsafe_allow_html=True)
-                                code_lang = match.group(1) or ''
-                                code = match.group(2)
-                                st.code(code.strip(), language=code_lang if code_lang else None)
-                                last_end = match.end()
-                            after = file_content[last_end:]
-                            if after.strip():
-                                st.markdown(after, unsafe_allow_html=True)
+                        # Accept only valid filename patterns
+                        if re.match(r'^[\w\-/]+\.(ts|js|json|md|tsx|jsx)$', filename):
+                            st.markdown(f"<div style='font-weight:bold;color:#007acc;margin-top:1em;'>// Filename: {filename}</div>", unsafe_allow_html=True)
+                            # Find all code blocks (typescript or generic) and render them as code, rest as markdown
+                            code_block_pattern = re.compile(r'```(typescript|ts|js|json)?(.*?)```', re.DOTALL)
+                            code_blocks = list(code_block_pattern.finditer(file_content))
+                            if code_blocks:
+                                last_end = 0
+                                for match in code_blocks:
+                                    before = file_content[last_end:match.start()]
+                                    if before.strip():
+                                        st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{before.strip()}</div>", unsafe_allow_html=True)
+                                    code_lang = match.group(1) or ''
+                                    code = match.group(2)
+                                    # Add copy hint above code block
+                                    st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
+                                    # Infer language from filename if missing
+                                    if not code_lang:
+                                        if filename.endswith('.ts') or filename.endswith('.tsx'):
+                                            code_lang = 'typescript'
+                                        elif filename.endswith('.js') or filename.endswith('.jsx'):
+                                            code_lang = 'javascript'
+                                        elif filename.endswith('.json'):
+                                            code_lang = 'json'
+                                        elif filename.endswith('.md'):
+                                            code_lang = 'markdown'
+                                    st.code(code.strip(), language=code_lang if code_lang else None)
+                                    last_end = match.end()
+                                after = file_content[last_end:]
+                                if after.strip():
+                                    st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{after.strip()}</div>", unsafe_allow_html=True)
+                            else:
+                                # If no code block, treat the whole file as code for copyability
+                                if file_content.strip():
+                                    st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
+                                    # Infer language from filename
+                                    code_lang = None
+                                    if filename.endswith('.ts') or filename.endswith('.tsx'):
+                                        code_lang = 'typescript'
+                                    elif filename.endswith('.js') or filename.endswith('.jsx'):
+                                        code_lang = 'javascript'
+                                    elif filename.endswith('.json'):
+                                        code_lang = 'json'
+                                    elif filename.endswith('.md'):
+                                        code_lang = 'markdown'
+                                    st.code(file_content.strip(), language=code_lang)
                         else:
-                            # If no code block, treat the whole file as code for copyability
-                            if file_content.strip():
-                                st.code(file_content.strip(), language=None)
+                            # If not a valid filename, treat the whole section as markdown (for explanations, etc.)
+                            if section.strip():
+                                st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{section.strip()}</div>", unsafe_allow_html=True)
                 # Fallback for single code block or plain markdown
                 else:
                     import re
@@ -190,18 +219,23 @@ with col1:
                         for match in code_blocks:
                             before = content[last_end:match.start()]
                             if before.strip():
-                                st.markdown(before, unsafe_allow_html=True)
+                                st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{before.strip()}</div>", unsafe_allow_html=True)
                             code_lang = match.group(1) or ''
                             code = match.group(2)
+                            st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
                             st.code(code.strip(), language=code_lang if code_lang else None)
                             last_end = match.end()
                         after = content[last_end:]
                         if after.strip():
                             st.markdown(f"<div style='background:#e6f3ff;padding:10px;border-radius:10px;margin-bottom:10px;'><strong>🤖 Bot:</strong> {html.escape(after)}</div>", unsafe_allow_html=True)
                     else:
-                        # If no code block, treat the whole content as code for copyability
-                        if content.strip():
+                        # If no code block, check if content looks like code (e.g., starts with import, export, function, class, or has curly braces)
+                        code_like_pattern = re.compile(r'^(\s)*(import |export |function |class |const |let |var |interface |type |\{|\})', re.MULTILINE)
+                        if code_like_pattern.search(content):
+                            st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
                             st.code(content.strip(), language=None)
+                        else:
+                            st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{content.strip()}</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     with st.form(key="chat_form", clear_on_submit=True):

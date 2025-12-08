@@ -53,7 +53,7 @@ class DataIngestion:
             documents = []
             for uploaded_file in uploaded_files:
                 file_ext = os.path.splitext(uploaded_file.filename)[1].lower()
-                suffix = file_ext if file_ext in [".pdf", ".docx", ".csv", ".txt",".ts"] else ".tmp"
+                suffix = file_ext if file_ext in [".pdf", ".docx", ".csv", ".txt",".ts",".tsx"] else ".tmp"
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
                     temp_file.write(uploaded_file.file.read())
@@ -97,6 +97,12 @@ class DataIngestion:
                         text_content = f.read()
                     doc = Document(page_content=text_content, metadata={"source": uploaded_file.filename})
                     documents.append(doc)
+                elif file_ext == ".tsx":
+                    # Simple text loader for .tsx files
+                    with open(temp_path, 'r', encoding='utf-8') as f:
+                        text_content = f.read()
+                    doc = Document(page_content=text_content, metadata={"source": uploaded_file.filename})
+                    documents.append(doc)
                 else:
                     print(f"Unsupported file type: {uploaded_file.filename}")
             return documents
@@ -106,8 +112,8 @@ class DataIngestion:
     def store_in_vector_db(self, documents: List[Document]):
         try:
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=300,  # Even smaller chunk size to avoid size limits
-                chunk_overlap=30,
+                chunk_size=2000,  # Increased chunk size to keep more context together
+                chunk_overlap=200,
                 length_function=len
             )
             documents = text_splitter.split_documents(documents)

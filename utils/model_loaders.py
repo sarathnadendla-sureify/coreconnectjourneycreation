@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import ChatOpenAI
 from utils.config_loader import load_config
 
 class ModelLoader:
@@ -47,12 +48,12 @@ class ModelLoader:
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")
 
-    def load_llm(self, provider="groq"):
+    def load_llm(self, provider="google"):
         """
         Load and return the LLM model.
 
         Args:
-            provider (str): The provider to use. Options: "google", "groq"
+            provider (str): The provider to use. Options: "google", "groq", "openai"
         """
         print(f"LLM loading using {provider} provider...")
 
@@ -74,6 +75,13 @@ class ModelLoader:
                 temperature=0.2,
                 top_p=0.95,
                 groq_api_key=os.getenv("GROQ_API_KEY")
+            )
+        elif provider == "openai":
+            model_name = self.config["llm"]["openai"]["model_name"]
+            model = ChatOpenAI(
+                model=model_name,
+                temperature=0.2,
+                openai_api_key=os.getenv("OPENAI_API_KEY")
             )
         else:
             raise ValueError(f"Unsupported provider: {provider}")

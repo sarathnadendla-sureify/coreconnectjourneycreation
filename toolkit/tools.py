@@ -57,10 +57,10 @@ def retriever_tool(question):
     )
 
     # Increase k to get more results for better coverage
-    k = config["retriever"]["top_k"] * 3  # Get more results than default
+    k = config["retriever"]["top_k"] * 6  # Increased multiplier for more results
 
     # Lower the threshold to capture more potentially relevant results
-    threshold = max(0.1, config["retriever"]["score_threshold"] - 0.2)
+    threshold = max(0.01, config["retriever"]["score_threshold"] - 0.4)  # Lowered threshold further
 
     # Create retriever with adjusted parameters
     retriever = vector_store.as_retriever(

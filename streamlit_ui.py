@@ -45,7 +45,7 @@ with st.sidebar:
 
     st.subheader("Upload TXT, or TS Files")
     st.markdown("Upload your **TXT, or TS journey data files** to analyze with the bot.")
-    uploaded_files = st.file_uploader("Choose files", type=["txt", "ts"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Choose files", type=["txt", "ts","tsx"], accept_multiple_files=True)
 
     if uploaded_files:
         st.subheader("File Preview")
@@ -53,7 +53,7 @@ with st.sidebar:
             with st.expander(f"Preview: {f.name}"):
                 try:
                     f.seek(0)
-                    if f.name.lower().endswith('.txt') or f.name.lower().endswith('.ts'):
+                    if f.name.lower().endswith('.txt') or f.name.lower().endswith('.ts') or f.name.lower().endswith('.tsx'):
                         text = f.read().decode('utf-8', errors='replace')
                         st.text_area("Text file preview", text[:2000], height=200)
                     f.seek(0)
@@ -154,44 +154,48 @@ with col1:
                         section = section.strip()
                         if not section:
                             continue
-                        # Only treat as filename if the first line looks like a filename (ends with .ts, .js, .json, .md, etc.)
                         lines = section.split('\n', 1)
                         filename = lines[0].strip() if lines else ''
                         file_content = lines[1] if len(lines) > 1 else ''
                         import re
-                        # Accept only valid filename patterns
                         if re.match(r'^[\w\-/]+\.(ts|js|json|md|tsx|jsx)$', filename):
                             st.markdown(f"<div style='font-weight:bold;color:#007acc;margin-top:1em;'>// Filename: {filename}</div>", unsafe_allow_html=True)
-                            # Find all code blocks (typescript or generic) and render them as code, rest as markdown
-                            code_block_pattern = re.compile(r'```(typescript|ts|js|json)?(.*?)```', re.DOTALL)
-                            code_blocks = list(code_block_pattern.finditer(file_content))
-                            if code_blocks:
-                                last_end = 0
-                                for match in code_blocks:
-                                    before = file_content[last_end:match.start()]
-                                    if before.strip():
-                                        st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{before.strip()}</div>", unsafe_allow_html=True)
-                                    code_lang = match.group(1) or ''
-                                    code = match.group(2)
-                                    # Add copy hint above code block
-                                    st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
-                                    # Infer language from filename if missing
-                                    if not code_lang:
-                                        if filename.endswith('.ts') or filename.endswith('.tsx'):
-                                            code_lang = 'typescript'
-                                        elif filename.endswith('.js') or filename.endswith('.jsx'):
-                                            code_lang = 'javascript'
-                                        elif filename.endswith('.json'):
-                                            code_lang = 'json'
-                                        elif filename.endswith('.md'):
-                                            code_lang = 'markdown'
-                                    st.code(code.strip(), language=code_lang if code_lang else None)
-                                    last_end = match.end()
-                                after = file_content[last_end:]
+                            # Extract the first code block after the filename, regardless of any markdown/explanation
+                            code_block_pattern = re.compile(r'```(typescript|ts|js|json|md|jsx)?\n?(.*?)```', re.DOTALL)
+                            code_block_match = code_block_pattern.search(file_content)
+                            if code_block_match:
+                                # Show any explanation/markdown before the code block
+                                before = file_content[:code_block_match.start()]
+                                if before.strip():
+                                    st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{before.strip()}</div>", unsafe_allow_html=True)
+                                code_lang = code_block_match.group(1) or ''
+                                code = code_block_match.group(2)
+                                st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
+                                # Infer language from filename if missing
+                                if not code_lang:
+                                    if filename.endswith('.ts') or filename.endswith('.tsx'):
+                                        code_lang = 'typescript'
+                                    elif filename.endswith('.js') or filename.endswith('.jsx'):
+                                        code_lang = 'javascript'
+                                    elif filename.endswith('.json'):
+                                        code_lang = 'json'
+                                    elif filename.endswith('.md'):
+                                        code_lang = 'markdown'
+                                st.code(code.strip(), language=code_lang if code_lang else None)
+                                # Download button for the code block
+                                st.download_button(
+                                    label=f"⬇️ Download {filename}",
+                                    data=code.strip(),
+                                    file_name=filename,
+                                    mime='text/plain',
+                                    use_container_width=True
+                                )
+                                # Show any explanation/markdown after the code block
+                                after = file_content[code_block_match.end():]
                                 if after.strip():
                                     st.markdown(f"<div style='background:#f9f9f9;padding:8px;border-radius:6px;font-style:italic;margin-bottom:6px;'>{after.strip()}</div>", unsafe_allow_html=True)
                             else:
-                                # If no code block, treat the whole file as code for copyability
+                                # If no code block, treat the whole file as code for copyability and download
                                 if file_content.strip():
                                     st.markdown("<span style='color:#007acc;font-size:0.9em;'>Click to copy code ⬇️</span>", unsafe_allow_html=True)
                                     # Infer language from filename
@@ -205,6 +209,13 @@ with col1:
                                     elif filename.endswith('.md'):
                                         code_lang = 'markdown'
                                     st.code(file_content.strip(), language=code_lang)
+                                    st.download_button(
+                                        label=f"⬇️ Download {filename}",
+                                        data=file_content.strip(),
+                                        file_name=filename,
+                                        mime='text/plain',
+                                        use_container_width=True
+                                    )
                         else:
                             # If not a valid filename, treat the whole section as markdown (for explanations, etc.)
                             if section.strip():

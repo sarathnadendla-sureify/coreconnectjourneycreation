@@ -62,7 +62,7 @@ class ModelLoader:
             # Configure the model with proper parameters
             model = ChatGoogleGenerativeAI(
                 model=model_name,
-                temperature=0.2,  # Lower temperature for more factual responses
+                temperature=0,  # Lower temperature for more factual responses
                 top_p=0.95,
                 top_k=40,
                 convert_system_message_to_human=True  # This handles system messages properly

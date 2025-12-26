@@ -13,6 +13,7 @@ from pinecone import ServerlessSpec, Pinecone
 from uuid import uuid4
 import sys
 from exception.exceptions import AlayticsBotException
+from utils.chroma_db_store import ChromaDBVectorStore
 
 class DataIngestion:
     """
@@ -109,7 +110,7 @@ class DataIngestion:
         except Exception as e:
             raise AlayticsBotException(e, sys)
 
-    def store_in_vector_db(self, documents: List[Document]):
+    def store_in_vector_db(self, documents: List[Document], vector_store_type="chroma"):
         try:
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=2000,  # Increased chunk size to keep more context together
@@ -118,35 +119,38 @@ class DataIngestion:
             )
             documents = text_splitter.split_documents(documents)
 
-            pinecone_client = Pinecone(api_key=self.pinecone_api_key)
-            index_name = self.config["vector_db"]["index_name"]
+            if vector_store_type == "pinecone":
+                pinecone_client = Pinecone(api_key=self.pinecone_api_key)
+                index_name = self.config["vector_db"]["index_name"]
 
-            if index_name not in [i.name for i in pinecone_client.list_indexes()]:
-                pinecone_client.create_index(
-                    name=index_name,
-                    dimension=384,  # adjust if needed based on embedding model
-                    metric="cosine",
-                    spec=ServerlessSpec(cloud="aws", region="us-east-1"),
-                )
+                if index_name not in [i.name for i in pinecone_client.list_indexes()]:
+                    pinecone_client.create_index(
+                        name=index_name,
+                        dimension=384,  # adjust if needed based on embedding model
+                        metric="cosine",
+                        spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+                    )
 
-            index = pinecone_client.Index(index_name)
-            vector_store = PineconeVectorStore(index=index, embedding=self.model_loader.load_embeddings())
+                index = pinecone_client.Index(index_name)
+                vector_store = PineconeVectorStore(index=index, embedding=self.model_loader.load_embeddings())
+            elif vector_store_type == "chroma":
+                vector_store = ChromaDBVectorStore(embedding=self.model_loader.load_embeddings())
+            else:
+                raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
 
-            # Process documents in smaller batches to avoid size limits
             batch_size = 20  # Smaller batch size to avoid message size limits
             total_docs = len(documents)
-
             print(f"Processing {total_docs} documents in batches of {batch_size}")
-
             for i in range(0, total_docs, batch_size):
                 batch_end = min(i + batch_size, total_docs)
                 batch = documents[i:batch_end]
                 batch_uuids = [str(uuid4()) for _ in range(len(batch))]
-
                 print(f"Processing batch {i//batch_size + 1}/{(total_docs + batch_size - 1)//batch_size}: documents {i+1}-{batch_end}")
-
                 try:
-                    vector_store.add_documents(documents=batch, ids=batch_uuids)
+                    if vector_store_type == "pinecone":
+                        vector_store.add_documents(documents=batch, ids=batch_uuids)
+                    else:
+                        vector_store.add_documents(documents=batch)
                     print(f"Successfully added batch {i//batch_size + 1}")
                 except Exception as batch_error:
                     print(f"Error processing batch {i//batch_size + 1}: {str(batch_error)}")
@@ -189,13 +193,13 @@ class DataIngestion:
         except Exception as e:
             raise AlayticsBotException(e, sys)
 
-    def run_pipeline(self, uploaded_files):
+    def run_pipeline(self, uploaded_files, vector_store_type="chroma"):
         try:
             documents = self.load_documents(uploaded_files)
             if not documents:
                 print("No valid documents found.")
                 return
-            self.store_in_vector_db(documents)
+            self.store_in_vector_db(documents, vector_store_type=vector_store_type)
         except Exception as e:
             raise AlayticsBotException(e, sys)
 

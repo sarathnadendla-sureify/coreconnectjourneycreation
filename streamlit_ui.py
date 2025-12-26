@@ -4,6 +4,8 @@ import json
 import pandas as pd
 import time
 import html
+import io
+import zipfile
 
 BASE_URL = "http://127.0.0.1:8000"  # Backend endpoint
 
@@ -134,6 +136,49 @@ with col1:
         st.success("✅ Data is loaded and ready for queries")
     elif st.session_state.last_upload_time:
         st.info("⏳ Data is being processed...")
+
+    # --- ZIP DOWNLOAD FEATURE ---
+    def extract_code_files_from_messages(messages):
+        files = {}
+        import re
+        for chat in messages:
+            if chat["role"] == "bot":
+                content = chat["content"]
+                if isinstance(content, list):
+                    content = '\n'.join(str(item) for item in content)
+                if '// Filename:' in content:
+                    file_sections = content.split('// Filename:')
+                    for section in file_sections:
+                        section = section.strip()
+                        if not section:
+                            continue
+                        lines = section.split('\n', 1)
+                        filename = lines[0].strip() if lines else ''
+                        file_content = lines[1] if len(lines) > 1 else ''
+                        code_block_pattern = re.compile(r'```(typescript|ts|js|json|md|jsx)?\n?(.*?)```', re.DOTALL)
+                        code_block_match = code_block_pattern.search(file_content)
+                        if code_block_match:
+                            code = code_block_match.group(2)
+                            files[filename] = code.strip()
+                        elif file_content.strip():
+                            files[filename] = file_content.strip()
+        return files
+
+    code_files = extract_code_files_from_messages(st.session_state.messages)
+    if code_files:
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+            for fname, fcontent in code_files.items():
+                zip_file.writestr(fname, fcontent)
+        zip_buffer.seek(0)
+        st.download_button(
+            label="⬇️ Download All Code as Zip",
+            data=zip_buffer,
+            file_name="generated_code.zip",
+            mime="application/zip",
+            use_container_width=True
+        )
+    # --- END ZIP DOWNLOAD FEATURE ---
 
     chat_container = st.container()
     with chat_container:

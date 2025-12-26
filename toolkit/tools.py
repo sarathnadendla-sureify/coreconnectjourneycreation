@@ -4,6 +4,7 @@ from langchain_community.tools import TavilySearchResults
 from langchain_community.tools.polygon.financials import PolygonFinancials
 from data_models.models import RagToolSchema
 from langchain_pinecone import PineconeVectorStore
+from utils.chroma_db_store import ChromaDBVectorStore
 from utils.model_loaders import ModelLoader
 from utils.config_loader import load_config
 from dotenv import load_dotenv
@@ -44,17 +45,22 @@ def llm_rerank(question, documents, model_loader):
     return [doc for score, doc in scored_docs]
 
 @tool(args_schema=RagToolSchema)
-def retriever_tool(question):
+def retriever_tool(question, vector_store_type="chroma"):
     """Retrieves information from the vector database based on the question.
     Useful for answering questions about data stored in the system, including CSV data with user IDs and event types."""
-    pinecone_api_key = os.getenv("PINECONE_API_KEY")
-    pc = Pinecone(api_key=pinecone_api_key)
+    if vector_store_type == "pinecone":
+        pinecone_api_key = os.getenv("PINECONE_API_KEY")
+        pc = Pinecone(api_key=pinecone_api_key)
 
-    # Create vector store with the index
-    vector_store = PineconeVectorStore(
-        index=pc.Index(config["vector_db"]["index_name"]),
-        embedding=model_loader.load_embeddings()
-    )
+        # Create vector store with the index
+        vector_store = PineconeVectorStore(
+            index=pc.Index(config["vector_db"]["index_name"]),
+            embedding=model_loader.load_embeddings()
+        )
+    elif vector_store_type == "chroma":
+        vector_store = ChromaDBVectorStore(embedding=model_loader.load_embeddings())
+    else:
+        raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
 
     # Increase k to get more results for better coverage
     k = config["retriever"]["top_k"] * 6  # Increased multiplier for more results

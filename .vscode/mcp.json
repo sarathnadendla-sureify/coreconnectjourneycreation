@@ -3,7 +3,7 @@
         "figma": {
             "type": "stdio",
             "command": "npx",
-            "args": ["-y", "figma-developer-mcp", "--figma-api-key=figd_UhZAADp8OHqeZc6N2m3uLPo6WdVOKWJFSUSrYHdD", "--stdio"]
+            "args": ["-y", "figma-developer-mcp", "figmakey", "--stdio"]
         }
     }
 }
